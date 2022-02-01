@@ -14,13 +14,10 @@ docker build -t flask-restapi .
 docker tag flask-restapi mediaverse/flask-restapi
 docker rmi flask-restapi
 
-docker run --network host -d --name mediaverse_rest mediaverse/flask-restapi
+docker run -d --network host --name mediaverse_rest mediaverse/flask-restapi
 
 docker ps
 docker stop mediaverse_rest
 docker rm mediaverse_rest
 docker rmi mediaverse/flask-restapi
-
-http://localhost:5000
-
 ```
