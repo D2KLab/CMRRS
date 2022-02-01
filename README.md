@@ -21,3 +21,5 @@ docker stop mediaverse_rest
 docker rm mediaverse_rest
 docker rmi mediaverse/flask-restapi
 ```
+
+As the instrutions show it is suggested to run the application in the host network providing an available port (settable in the Dockerfile).
