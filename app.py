@@ -21,7 +21,6 @@ from flask import Flask, jsonify, request
 from logstash_formatter import LogstashFormatterV1
 
 app     = Flask(__name__)
-
 EMB_SIZE = 512
 
 class Indexer:
