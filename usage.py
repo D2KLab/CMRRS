@@ -4,8 +4,8 @@ import requests
 import pdb
 #import time
 
-update_url   = 'http://localhost:5000/mv_retrieval/v0.1/add_content'
-retrieve_url = 'http://localhost:5000/mv_retrieval/v0.1/retrieve_contents'
+update_url   = 'http://localhost:9000/mv_retrieval/v0.1/add_content'
+retrieve_url = 'http://localhost:9000/mv_retrieval/v0.1/retrieve_contents'
 
 if __name__ == '__main__':
     pool  = np.random.rand(10, 512).astype(np.float32)
