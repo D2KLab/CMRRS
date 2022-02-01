@@ -1,2 +1,3 @@
 #! /usr/bin/bash
-flask run
+
+flask run --port 9000
