@@ -20,8 +20,26 @@ import numpy as np
 from flask import Flask, jsonify, request
 from logstash_formatter import LogstashFormatterV1
 
+import torch
+import clip
+from PIL import Image
+
 app     = Flask(__name__)
 EMB_SIZE = 512
+model, preprocess = clip.load("ViT-B/32") # (or load model starting from state_dict)
+
+app.config['Clip'] = model
+app.config['Preprocess'] = preprocess 
+
+def encode(input):
+    if type(input) is str:
+        text = clip.tokenize(input)
+        embs = app.config['Clip'].encode_text(text)
+    else:
+        image = app.config['Preprocess'](Image.open(input)).unsqueeze(0)
+        embs = app.config['Clip'].encode_image(image)
+
+    return embs
 
 class Indexer:
     def __init__(self, emb_size: int=EMB_SIZE):
@@ -30,10 +48,12 @@ class Indexer:
         self.index        = faiss.index_factory(emb_size, "Flat", faiss.METRIC_INNER_PRODUCT)
         self.faissId2MVId = []
 
-    def add_content(self, content_embedding: np.ndarray, content_id: str):
+    def add_content(self, input, content_id: str):  # (input: np.ndarray or str)
         """
         :param content_embedding: embedding having shape (N, EMB_SIZE)
         """
+        content_embedding = encode(input)
+
         assert len(content_embedding.shape) == 1, 'Expecting one content at a time'
         assert content_embedding.shape[-1] == EMB_SIZE, 'Expected embedding size of {}, got {}'.format(EMB_SIZE, content_embedding.shape[-1])
         content_embedding = content_embedding.reshape(1, -1)
@@ -41,11 +61,13 @@ class Indexer:
         self.index.add(content_embedding)
         self.faissId2MVId.append(content_id)
 
-    def retrieve(self, query_embedding: np.ndarray, k: int) -> Tuple[List[str], List[float]]:
+    def retrieve(self, input, k: int) -> Tuple[List[str], List[float]]:  # (input: np.ndarray or str)
         """
         :param query_embedding: np.ndarray having shape (EMB_SIZE,)
         :param k: retrieve top_k contents from the pool
         """
+        query_embedding = encode(input)
+
         query_embedding            = query_embedding.reshape(1, -1).astype(np.float32)
         faiss.normalize_L2(query_embedding)
         similarities, contents_idx = self.index.search(query_embedding, k)

@@ -11,7 +11,11 @@ RUN echo "source activate mediaverse_rest" > ~/.bashrc
 ENV PATH /opt/conda/envs/mediaverse_rest/bin:$PATH
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "-n", "mediaverse_rest", "/bin/bash", "-c"]
+# RUN conda install --yes -c pytorch pytorch=1.7.1 torchvision cudatoolkit=11.0   ### for CLIP
 RUN conda install -c pytorch faiss-cpu
+
+# RUN pip install ftfy regex tqdm                                                 ### for CLIP
+# RUN pip install git+https://github.com/openai/CLIP.git                          ### for CLIP
 RUN pip install -r requirements.txt
 
 EXPOSE 9000
