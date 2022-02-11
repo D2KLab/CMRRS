@@ -25,8 +25,8 @@ import clip
 from PIL import Image
 
 app     = Flask(__name__)
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EMB_SIZE = 512
-
 
 class ClipEncoder:
     def __init__(self) -> None:
@@ -36,11 +36,11 @@ class ClipEncoder:
 
     def encode(self, input: Union[str, np.array]) -> np.array:
         if isinstance(input, str):
-            text = clip.tokenize(input)
-            return self.model.encode_text(text).astype(np.float32)
+            text = clip.tokenize(input).to(DEVICE)
+            return self.model.encode_text(text).detach().cpu().numpy().reshape(512).astype(np.float32)
         else:
-            image = self.preprocess(Image.open(input)).unsqueeze(0)
-            return self.model.encode_image(image).astype(np.float32)
+            image = self.preprocess(Image.open(input)).unsqueeze(0).to(DEVICE)
+            return self.model.encode_image(image).detach().cpu().numpy().reshape(512).astype(np.float32)
 
 
 class Indexer:
@@ -80,10 +80,8 @@ class Indexer:
         
         return mv_content_ids, similarities
 
-
 app.config['Indexer'] = Indexer()
 app.config['ClipEncoder'] = ClipEncoder()
-
 
 @app.route('/mv_retrieval/v0.1/add_content', methods=['POST'])
 def add_content():
