@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mediaverse Retrieval System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <img src="https://mediaverse-project.eu/wp-content/uploads/2020/12/Logo_MediaVerse_RGB_nurName.png">
+    <br>
+    <form action="{{ url_for('add_content') }}" method="post">
+        {% for message in get_flashed_messages() %}
+            {% if not message.startswith('Retrieve') and not  message.startswith('[MV]')%}
+                <p>{{ message }}</p>
+            {% endif %}
+        {% endfor %}
+        <br>
+        <label for="contentid">Enter the content id:</label><br>
+        <input type="text" name="content_id"><br>
+        <label for="input">Enter input:</label><br>
+        <input type="text" name="content_body_text">
+        <input type="file" name="content_body_image" accept="image/*">
+        <br>
+        <input type="submit" value="ADD CONTENT" id="addcontent">
+    </form>
+    <br> <br> <br>
+    <form action="{{ url_for('retrieve') }}" method="post">
+        {% for message in get_flashed_messages() %}
+            {% if message.startswith('Retrieve') %}
+                <p>{{ message }}</p>
+            {% endif %}
+        {% endfor %}
+        <br>
+        <label for="input">Enter the query:</label><br>
+        <input type="text" name="query_text">
+        <input type="file" name="query_image" accept="image/*"><br>
+        <label for="n_contents">Enter the number of contents to retrieve:</label><br>
+        <input type="number" name="n_contents_to_retrieve">
+        <br>
+        <input type="submit" value="RETRIEVE" id="query">
+    </form>
+    <br> <br> <br>
+    <form action="{{ url_for('all_contents') }}" method="get">
+        <label for="submit">Press the button to return all elements inserted in the MV archive:</label><br>
+        <input type="submit" value="ALL CONTENTS" id="all">
+        <br>
+        {% for message in get_flashed_messages() %}
+            {% if message.startswith('[MV]') %}
+                <p>{{ message }}</p>
+            {% endif %}
+        {% endfor %}
+    </form>
+</body>
+</html>

@@ -1,0 +1,66 @@
+body {
+    text-align: center;
+    background-color: rgb(143, 158, 172);
+}
+p {
+    color: white;
+    font-family: Shanti;
+    font-size: 1.2em;
+    display: inline-block;
+    margin:  20px;
+}
+img {
+    margin: 60px 0 30px 0;
+    width: 250px;
+}
+input {
+  width: 300px;
+  margin: 20px 20px;
+  height: 50px;
+  border: none;
+  border-radius: 10px;
+  font-family: Shanti;
+  font-size: 1.3em;
+  text-align: center;
+}
+
+input:focus {
+    outline: none;
+    border: solid 5px #00FFCE;
+}
+
+#addcontent {
+    background-color: PaleVioletRed;
+    border:  none;
+    width:  200px;
+    color: white;
+}
+
+#addcontent:hover {
+    background-color: MediumVioletRed;
+    cursor: pointer;
+}
+
+#query {
+    background-color: PaleVioletRed;
+    border:  none;
+    width:  200px;
+    color: white;
+}
+
+#query:hover {
+    background-color: MediumVioletRed;
+    cursor: pointer;
+}
+
+#all {
+    background-color: rgb(118, 214, 135);
+    border:  none;
+    width:  200px;
+    color: white;
+}
+
+#all:hover {
+    background-color: rgb(17, 141, 17);
+    cursor: pointer;
+}
