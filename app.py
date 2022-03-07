@@ -23,10 +23,15 @@ from logstash_formatter import LogstashFormatterV1
 import torch
 import clip
 from PIL import Image
+from io import BytesIO
+import base64
 
 app     = Flask(__name__)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EMB_SIZE = 512
+
+def colored(r, g, b, text):
+    return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
 
 class ClipEncoder:
     def __init__(self) -> None:
@@ -34,13 +39,14 @@ class ClipEncoder:
         self.model = model
         self.preprocess = preprocess
 
-    def encode(self, input: Union[str, np.array]) -> np.array:
-        if isinstance(input, str):
+    def encode(self, input: str, type: str) -> np.array:
+        if type == 'text':
             text = clip.tokenize(input).to(DEVICE)
             return self.model.encode_text(text).detach().cpu().numpy().reshape(512).astype(np.float32)
-        else:
-            image = self.preprocess(Image.open(input)).unsqueeze(0).to(DEVICE)
+        elif type == 'image':
+            image = self.preprocess(Image.open(BytesIO(base64.b64decode(input)))).unsqueeze(0).to(DEVICE)  # b64 input
             return self.model.encode_image(image).detach().cpu().numpy().reshape(512).astype(np.float32)
+        raise  ValueError(colored(255,0,0, 'Not valid type value, enter text or image'))
 
 
 class Indexer:
@@ -89,12 +95,13 @@ def add_content():
     Input is a json containing two fields
 
     :content_id: str
-    :content_body:  Union[str, Image]
+    :content_body:  str (text or base64 image)
+    :type (text or image): str
 
     """
     start_t           = datetime.now()
     input             = request.get_json()
-    content_embedding = app.config['ClipEncoder'].encode(input['content_body'])
+    content_embedding = app.config['ClipEncoder'].encode(input['content_body'], input['type'])
     content_id        = input['content_id']
     app.config['Indexer'].add_content(content_embedding, content_id)
     end_t             = datetime.now()
@@ -109,14 +116,15 @@ def retrieve():
     """
     Input is a json containing two fields
 
-    :query:                  Union[str, Image]
+    :query:                  str (text or base64 image)
     :n_contents_to_retrieve: int
+    :type (text or image):   str
 
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float])
     """
     input                  = request.get_json()
-    query_embedding        = app.config['ClipEncoder'].encode(input['query'])
+    query_embedding        = app.config['ClipEncoder'].encode(input['query'], input['type'])
     k                      = input['n_contents_to_retrieve']
     contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
     return jsonify({'contents': contents, 'scores': similarities.tolist()})
