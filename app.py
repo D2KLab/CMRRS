@@ -36,8 +36,8 @@ class Container:
         """
         self.content is a dictionary of 
         ->
-        key: embedding
-        value: content id in mv
+        key   : embedding
+        value : content id in mv
         """
         self.content = defaultdict(lambda: 'Not Present')
 
@@ -59,8 +59,8 @@ class ClipEncoder:
 
     def encode(self, input: str, type: str) -> np.array:
         """
-        input: binary text or image
-        type: str
+        input : binary text or image
+        type  : str
         """
         if type == 'text':
             input = input.decode('UTF-8')
@@ -120,9 +120,9 @@ def add_content():
     """
     Input is a json containing two fields
 
-    :content_id: str
-    :content:  binary text or image
-    :type (text or image): str
+    :content_id              : str
+    :content                 : binary text or image
+    :type (text or image)    : str
 
     """
 
@@ -155,9 +155,9 @@ def retrieve():
     """
     Input is a json containing two fields
 
-    :content (query):                       binary text or image
-    :k (number of contents to retrieve):    int
-    :type (text or image):                  str
+    :content (query)                      : binary text or image
+    :k (number of contents to retrieve)   : int
+    :type (text or image)                 : str
 
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float])
