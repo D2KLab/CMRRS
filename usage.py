@@ -68,3 +68,7 @@ if __name__ == '__main__':
 
 
     # RECOMMEND
+    data = list(embeddings) #capire come ottenere la lista di embeddings e caricarla su un file
+    arg = '?k=10&n=5'
+    response = requests.post(recommend_url+arg, data=data)
+    print('[RETRIEVE]-- status: {}, {}'.format(response.status_code, response.content))
