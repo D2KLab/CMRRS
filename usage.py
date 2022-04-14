@@ -8,8 +8,8 @@ import string
 
 import skimage
 
-update_url   = 'http://localhost:6000/mv_retrieval/v0.1/add_content'
-retrieve_url = 'http://localhost:6000/mv_retrieval/v0.1/retrieve_contents'
+update_url   = 'http://localhost:8000/mv_retrieval/v0.1/add_content'
+retrieve_url = 'http://localhost:8000/mv_retrieval/v0.1/retrieve_contents'
 
 descriptions = {
     "page": "a page of text about segmentation",
@@ -61,7 +61,10 @@ if __name__ == '__main__':
         f.write(query)
     with open('tmpfile.txt', 'rb') as f:
         data = f.read()
-
-    arg = '?type=text&k=10'
+        print(type(data))
+    arg = '?type=text&k=11'
     response = requests.post(retrieve_url+arg, data=data)
     print('[RETRIEVE]-- status: {}, {}'.format(response.status_code, response.content))
+
+
+    # RECOMMEND

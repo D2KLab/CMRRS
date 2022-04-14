@@ -11,6 +11,7 @@ Doubts:
 import logging
 from typing import List, Tuple
 from datetime import datetime
+import os
 
 import faiss
 import numpy as np
@@ -168,4 +169,37 @@ def retrieve():
 
     query_embedding        = app.config['ClipEncoder'].encode(content, type)
     contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
+    embedding = query_embedding.tolist()
+    return jsonify({'contents': contents, 'scores': similarities.tolist(), 'query embedding': embedding})
+
+@app.route('/mv_retrieval/v0.1/recommend', methods=['POST'])
+def recommend():
+    """
+    The body is a json containing the list of embeddings
+    
+    :content                                            : list(float)
+
+    The parameters of the post request are:
+
+    :k (number of relevan contents)                     : int 
+    :n (number of previous posts to consider)           : int
+    
+    ASSUMPTION: the previous n contents have similar semantics --> element wise mean of the embeddings
+
+    :return: return a payload with the fields 'contents' (List[str]) 
+            and 'scores' (List[float]) for each seed
+    """
+    content           = request.data
+    k                 = int(request.args['k'])
+    n                 = int(request.args['n'])
+
+    # query_embedding        = app.config['ClipEncoder'].encode(seed, type)
+    query_embedding        = np.mean(content[:n], axis=0)
+    contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
     return jsonify({'contents': contents, 'scores': similarities.tolist()})
+   
+# if __name__=="__main__":
+#     app.run(host=os.getenv('IP', 'localhost'), 
+#             port=int(os.getenv('PORT', 8000)))
+
+    
