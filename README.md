@@ -8,8 +8,8 @@ The service makes use of a pretrained **CLIP** model with:
 ## Retrieval
 ![APP](restapi.PNG)
 
-The user can access the system by means of two functions: INPUT
-- **add_content()**: in this way the user can add a content (text or  image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. It takes three arguments:
+The user can access the system by means of two functions:
+- **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. It takes three arguments:
     - text or image binary data (refer to usage.py example);
     - id: Mediaverse ID of the content to load;
     - type: "text" or "image", string describing the data type of the content to be loaded.
