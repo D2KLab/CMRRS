@@ -1,12 +1,20 @@
+[[CLIP]](https://github.com/openai/CLIP)
 
 This application exposes a REST service to make content retrieval (through a search query, text or image) or content recommendation based on hystorical contents precedently updated by the user.
+The service makes use of a pretrained CLIP model with Vit-B/32 as vision encoder (512 embeddings dimension, 224 input resolution, 12 layers, 12 heads) and BERT as text encoder (63M-parameter 12- layer 512-wide model with 8 attention heads).
 
 ## Retrieval
 ![APP](restapi.PNG)
 
-The user can access the system by means of two actions:
-- **Post content**: in this way the user can add a content (text or  image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index.
-- **Search query**: the user enters a query (text or image) with the aim of retrieving  as a result the k elements most similar, to the submitted query, among those stored inside the  Faiss index. The top K contents are ranked according to the cosine similarity with respect to the input query.
+The user can access the system by means of two functions: INPUT
+- **add_content()**: in this way the user can add a content (text or  image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. It takes three arguments:
+    - text or image binary data (refer to usage.py example);
+    - id: Mediaverse ID of the content to load;
+    - type: "text" or "image", string describing the data type of the content to be loaded.
+- **retrieve()**: the user enters a query (text or image) with the aim of retrieving  as a result the k elements most similar, to the submitted query, among those stored inside the  Faiss index. The top K contents are ranked according to the cosine similarity with respect to the input query. It takes three arguments:
+    - text or image binary data (refer to usage.py example);
+    - k: number of similar content to retrieve;
+    - type: "text" or "imege", string describing the data type of the input query.
 
 
 ## Expose the service
@@ -20,7 +28,7 @@ pip install -r requirements.txt
 flask run --port <PORT>
 ```
 
-#### Run a Docker container
+#### 2. Run a Docker container
 
 ```
 docker build -t flask-restapi .
