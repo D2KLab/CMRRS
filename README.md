@@ -1,7 +1,9 @@
 [[CLIP]](https://github.com/openai/CLIP)
 
 This application exposes a REST service to make content retrieval (through a search query, text or image) or content recommendation based on hystorical contents precedently updated by the user.
-The service makes use of a pretrained CLIP model with Vit-B/32 as vision encoder (512 embeddings dimension, 224 input resolution, 12 layers, 12 heads) and BERT as text encoder (63M-parameter 12- layer 512-wide model with 8 attention heads).
+The service makes use of a pretrained **CLIP** model with:
+- Vit-B/32 as vision encoder (512 embeddings dimension, 224 input resolution, 12 layers, 12 heads)
+- BERT as text encoder (63M-parameter 12- layer 512-wide model with 8 attention heads).
 
 ## Retrieval
 ![APP](restapi.PNG)
