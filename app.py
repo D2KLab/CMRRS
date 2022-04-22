@@ -170,36 +170,33 @@ def retrieve():
     query_embedding        = app.config['ClipEncoder'].encode(content, type)
     contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
     embedding = query_embedding.tolist()
-    return jsonify({'contents': contents, 'scores': similarities.tolist(), 'query embedding': embedding})
+    return jsonify({'contents': contents, 'scores': similarities.tolist()})
 
-@app.route('/mv_retrieval/v0.1/recommend', methods=['POST'])
+
+@app.route('/mv_retrieval/v0.1/recommend_content', methods=['POST'])
 def recommend():
     """
-    The body is a json containing the list of embeddings
-    
-    :content                                            : list(float)
-
     The parameters of the post request are:
 
-    :k (number of relevan contents)                     : int 
+    :k (number of contents to retreive)                 : int 
     :n (number of previous posts to consider)           : int
     
     ASSUMPTION: the previous n contents have similar semantics --> element wise mean of the embeddings
 
-    :return: return a payload with the fields 'contents' (List[str]) 
-            and 'scores' (List[float]) for each seed
+    :return: return a payload with the fields 'last n content' (List[str]),
+                                              'contents' (List[str]) 
+                                               and 'scores' (List[float])
     """
-    content           = request.data
     k                 = int(request.args['k'])
     n                 = int(request.args['n'])
 
-    # query_embedding        = app.config['ClipEncoder'].encode(seed, type)
-    query_embedding        = np.mean(content[:n], axis=0)
-    contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
-    return jsonify({'contents': contents, 'scores': similarities.tolist()})
-   
-# if __name__=="__main__":
-#     app.run(host=os.getenv('IP', 'localhost'), 
-#             port=int(os.getenv('PORT', 8000)))
-
+    embeddings    = list(app.config['Container'].get_embeddings())
+    ids         = [app.config['Container'].get_mvID(embeddings[-i]) for i in range(1,n+1)]
     
+    average_embedding = np.mean(np.array(embeddings), axis=0)
+    contents, similarities = app.config['Indexer'].retrieve(average_embedding, k)
+
+    return jsonify({'last n content': ids, 'contents recommended': contents, 'scores': similarities.tolist()})
+
+
+
