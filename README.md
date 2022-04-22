@@ -4,6 +4,7 @@ This application exposes a REST service to make content retrieval (through a sea
 The service makes use of a pretrained **CLIP** model with:
 - Vit-B/32 as vision encoder (512 embeddings dimension, 224 input resolution, 12 layers, 12 heads)
 - BERT as text encoder (63M-parameter 12- layer 512-wide model with 8 attention heads).
+
 Contents are indexed and searched in the application node by means of **faiss** library which speed up similarity search over the representational space.
 
 ## Retrieval
