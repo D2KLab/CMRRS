@@ -82,8 +82,10 @@ class Indexer:
     def __init__(self, emb_size: int=EMB_SIZE) -> None:
         # to get total length of flat index: index.xb.size()
         # to get number of embeddings in index: index.xb.size() // EMB_SIZE
-        self.index        = faiss.index_factory(emb_size, "Flat", faiss.METRIC_INNER_PRODUCT)
-        self.faissId2MVId = []
+        self.text_index        = faiss.index_factory(emb_size, "Flat", faiss.METRIC_INNER_PRODUCT)
+        self.image_index        = faiss.index_factory(emb_size, "Flat", faiss.METRIC_INNER_PRODUCT)
+        self.faissId2MVId_text = []
+        self.faissId2MVId_image = []
 
     def add_content(self, content_embedding: np.array, content_id: str, type: str) -> None:  # (input: np.ndarray or str)
         """
@@ -93,8 +95,12 @@ class Indexer:
         assert content_embedding.shape[-1] == EMB_SIZE, 'Expected embedding size of {}, got {}'.format(EMB_SIZE, content_embedding.shape[-1])
         content_embedding = content_embedding.reshape(1, -1)
         faiss.normalize_L2(content_embedding)
-        self.index.add(content_embedding)
-        self.faissId2MVId.append(content_id)
+        if type == 'text':
+            self.text_index.add(content_embedding)
+            self.faissId2MVId_text.append(content_id)
+        elif type == 'image':
+            self.image_index.add(content_embedding)
+            self.faissId2MVId_image.append(content_id)
         
 
     def retrieve(self, query_embedding: np.array, k: int) -> Tuple[List[str], List[float]]:  # (input: np.ndarray or str)
@@ -104,12 +110,22 @@ class Indexer:
         """
         query_embedding  = query_embedding.reshape(1, -1).astype(np.float32)
         faiss.normalize_L2(query_embedding)
-        similarities, contents_idx = self.index.search(query_embedding, k)
-        # assuming only one query
-        similarities               = similarities[0]
-        contents_idx               = contents_idx[0] #faiss internal indices
-        mv_content_ids             = [self.faissId2MVId[idx] for idx in contents_idx]
-        return mv_content_ids, similarities
+        similarities_text, contents_idx_text   = self.text_index.search(query_embedding, k)
+        similarities_image, contents_idx_image = self.image_index.search(query_embedding, k)
+        
+        try:
+            mv_content_ids_text             = [self.faissId2MVId_text[idx] for idx in contents_idx_text[0]]
+        except IndexError:
+            mv_content_ids_text             = 'No text data stored in the MV database'
+            similarities_text               = [np.array([])]
+        
+        try:
+            mv_content_ids_image            = [self.faissId2MVId_image[idx] for idx in contents_idx_image[0]]
+        except IndexError:
+            mv_content_ids_image            = 'No image data stored in the MV database'
+            similarities_image              = [np.array([])]
+        
+        return mv_content_ids_text, similarities_text[0], mv_content_ids_image, similarities_image[0]
 
 app.config['Indexer'] = Indexer()
 app.config['ClipEncoder'] = ClipEncoder()
@@ -155,9 +171,9 @@ def retrieve():
     """
     Input is a json containing two fields
 
-    :content (query)                      : binary text or image
-    :k (number of contents to retrieve)   : int
-    :type (text or image)                 : str
+    :query:                  str (text or base64 image)
+    :n_contents_to_retrieve: int
+    :type (text or image):   str
 
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float])
@@ -167,5 +183,7 @@ def retrieve():
     type              = request.args['type']
 
     query_embedding        = app.config['ClipEncoder'].encode(content, type)
-    contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
-    return jsonify({'contents': contents, 'scores': similarities.tolist()})
+    textids, similarities_text, imageids, similarities_image = app.config['Indexer'].retrieve(query_embedding, k)
+    return jsonify({'text': {'contents': textids, 'scores': similarities_text.tolist()}, 
+                   'image': {'contents': imageids, 'scores': similarities_image.tolist()}
+                   }) 
