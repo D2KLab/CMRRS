@@ -62,6 +62,6 @@ if __name__ == '__main__':
     with open('tmpfile.txt', 'rb') as f:
         data = f.read()
 
-    arg = '?type=text&k=10'
+    arg = '?type=text&k=4'
     response = requests.post(retrieve_url+arg, data=data)
     print('[RETRIEVE]-- status: {}, {}'.format(response.status_code, response.content))
