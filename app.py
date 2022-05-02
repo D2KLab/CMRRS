@@ -24,6 +24,8 @@ from PIL import Image
 from io import BytesIO
 from collections import defaultdict
 
+from operator import itemgetter
+
 app     = Flask(__name__)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EMB_SIZE = 512
@@ -38,7 +40,8 @@ class Container:
         self.content is a dictionary of 
         ->
         key   : embedding
-        value : content id in mv
+        value : dictionary with keys and values: "content_id" :  id of the content in mv
+                                                 "user_id"    :  id of the user who posted the content
         """
         self.content = defaultdict(lambda: 'Not Present')
 
@@ -46,10 +49,15 @@ class Container:
         return self.content.keys()
 
     def get_mvID(self, embedding):
-        return self.content[embedding]
+        return self.content[embedding]["content_id"]
+    
+    def get_userID(self, embedding):
+        return self.content[embedding]["user_id"]
 
-    def add_content(self, embedding, id):
-        self.content[embedding] = id
+    def add_content(self, embedding, content_id, user_id):
+        self.content[embedding] = {}
+        self.content[embedding]["content_id"] = content_id
+        self.content[embedding]["user_id"] = user_id
 
 class ClipEncoder:
     def __init__(self) -> None:
@@ -85,8 +93,9 @@ class Indexer:
         # to get number of embeddings in index: index.xb.size() // EMB_SIZE
         self.index        = faiss.index_factory(emb_size, "Flat", faiss.METRIC_INNER_PRODUCT)
         self.faissId2MVId = []
+        self.users = []
 
-    def add_content(self, content_embedding: np.array, content_id: str, type: str) -> None:  # (input: np.ndarray or str)
+    def add_content(self, content_embedding: np.array, content_id: str, user_id: str, type: str) -> None:  # (input: np.ndarray or str)
         """
         :param content_embedding: embedding having shape (N, EMB_SIZE)
         """
@@ -96,6 +105,7 @@ class Indexer:
         faiss.normalize_L2(content_embedding)
         self.index.add(content_embedding)
         self.faissId2MVId.append(content_id)
+        self.users.append(user_id)
         
 
     def retrieve(self, query_embedding: np.array, k: int) -> Tuple[List[str], List[float]]:  # (input: np.ndarray or str)
@@ -110,7 +120,8 @@ class Indexer:
         similarities               = similarities[0]
         contents_idx               = contents_idx[0] #faiss internal indices
         mv_content_ids             = [self.faissId2MVId[idx] for idx in contents_idx]
-        return mv_content_ids, similarities
+        users_ids                  = [self.users[idx] for idx in contents_idx]
+        return mv_content_ids, similarities, users_ids
 
 app.config['Indexer'] = Indexer()
 app.config['ClipEncoder'] = ClipEncoder()
@@ -132,21 +143,22 @@ def add_content():
     content           = request.data
     content_id        = request.args['id']
     type              = request.args['type']
+    user              = request.args['user']
 
     content_embedding = app.config['ClipEncoder'].encode(content, type)
 
     if tuple(content_embedding) in app.config['Container'].get_embeddings():
         elapsed           = (datetime.now()-start_t).total_seconds()
-        out_msg           = {'msg': 'Content arleady present in the MV archive with id: {}'.format(app.config['Container'].get_mvID(tuple(content_embedding))),
+        out_msg           = {'msg': 'Content arleady present in the MV archive with id: {} and uploaded by user: {}'.format(app.config['Container'].get_mvID(tuple(content_embedding)), app.config['Container'].get_userID(tuple(content_embedding))),
                             'time': elapsed} 
         return jsonify(out_msg), 200
     
-    app.config['Container'].add_content(tuple(content_embedding), content_id)
+    app.config['Container'].add_content(tuple(content_embedding), content_id, user)
 
-    app.config['Indexer'].add_content(content_embedding, content_id, type)
+    app.config['Indexer'].add_content(content_embedding, content_id, user, type)
     end_t             = datetime.now()
     elapsed           = (end_t-start_t).total_seconds()
-    out_msg           = {'msg': 'Content {} successfully added to the indexer'.format(content_id),
+    out_msg           = {'msg': 'Content {} successfully added to the indexer by user {}'.format(content_id, user),
                          'time': elapsed} 
     return jsonify(out_msg), 200
 
@@ -163,40 +175,32 @@ def retrieve():
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float])
     """
-    content           = request.data
-    k                 = int(request.args['k'])
-    type              = request.args['type']
-
-    query_embedding        = app.config['ClipEncoder'].encode(content, type)
-    contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
-    embedding = query_embedding.tolist()
-    return jsonify({'contents': contents, 'scores': similarities.tolist()})
-
-
-@app.route('/mv_retrieval/v0.1/recommend_content', methods=['POST'])
-def recommend():
-    """
-    The parameters of the post request are:
-
-    :k (number of contents to retreive)                 : int 
-    :n (number of previous posts to consider)           : int
     
-    ASSUMPTION: the previous n contents have similar semantics --> element wise mean of the embeddings
-
-    :return: return a payload with the fields 'last n content' (List[str]),
-                                              'contents' (List[str]) 
-                                               and 'scores' (List[float])
-    """
     k                 = int(request.args['k'])
-    n                 = int(request.args['n'])
-
-    embeddings    = list(app.config['Container'].get_embeddings())
-    ids         = [app.config['Container'].get_mvID(embeddings[-i]) for i in range(1,n+1)]
+    posting_user      = request.args['user']
     
-    average_embedding = np.mean(np.array(embeddings), axis=0)
-    contents, similarities = app.config['Indexer'].retrieve(average_embedding, k)
+    if (request.data):
+        content           = request.data
+        type              = request.args['type']
+        query_embedding   = app.config['ClipEncoder'].encode(content, type)
+        contents, similarities = app.config['Indexer'].retrieve(query_embedding, k)
+        return jsonify({'contents': contents, 'scores': similarities.tolist()})
+    
+    else:
+        contents = []
+        similarities = []
+        embeddings    = list(app.config['Container'].get_embeddings())
+        # ids           = [app.config['Container'].get_mvID(embeddings[i]) for i in range(len(embeddings))]
+        for emb in embeddings:
+            cont, simil, user = app.config['Indexer'].retrieve(np.asarray(emb), k)
+            contents.extend([c for (i,c) in enumerate(cont) if user[i] != posting_user])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if user[i] != posting_user])
+        
+        indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+        # indexes = np.argsort(similarities)
+        contents = [contents[i] for i in indexes]
+        return jsonify({'contents': contents[-k:], 'scores': similarities_sorted[-k:]})
 
-    return jsonify({'last n content': ids, 'contents recommended': contents, 'scores': similarities.tolist()})
 
 
 
