@@ -73,6 +73,22 @@ if __name__ == '__main__':
     #     response   = requests.post(update_url+arg, data=data)
     #     print('[UPDATE] -- status: {}, {}'.format(response.status_code, response.content))
 
+    # # LOAD IMAGES 
+    # for filename in [filename for filename in os.listdir(skimage.data_dir) if filename.endswith(".png") or filename.endswith(".jpg")]:
+    #     name = os.path.splitext(filename)[0]
+    #     if name not in descriptions:
+    #         continue
+        
+    #     with open(os.path.join(skimage.data_dir, filename), 'rb') as f:
+    #         data = f.read()
+
+    #     random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k = 10))
+    #     if name == 'page':
+    #         print(descriptions[name], '(image) :', random_str)
+    #     arg = '?id='+random_str+'&type=image'
+    #     response   = requests.post(update_url+arg, data=data)
+    #     print('[UPDATE] -- status: {}, {}'.format(response.status_code, response.content))
+
     # LOAD IMAGES ON MEDIAVERSE
     for filename in [filename for filename in os.listdir(skimage.data_dir) if filename.endswith(".png") or filename.endswith(".jpg")]:
         name = os.path.splitext(filename)[0]
@@ -121,6 +137,14 @@ if __name__ == '__main__':
     arg = '?k=10&user='+username
     # response   = requests.post(recommend_url+arg, data=data)
     response   = requests.post(retrieve_url+arg)
+        arg = '?id='+name+'&type=image'
+        response   = requests.post(update_url+arg, data=data)
+        print('[UPDATE] -- status: {}, {}'.format(response.status_code, response.content))
+
+    # QUEY FOR RECOMMENDATION
+    arg = '?k=10&n=2'
+    # response   = requests.post(recommend_url+arg, data=data)
+    response   = requests.post(recommend_url+arg)
     print('[RECOMMEND] -- status: {}, {}'.format(response.status_code, response.content))
 
     # # QUERY
@@ -135,4 +159,4 @@ if __name__ == '__main__':
     # print('[RETRIEVE]-- status: {}, {}'.format(response.status_code, response.content))
 
 
-   
+    
