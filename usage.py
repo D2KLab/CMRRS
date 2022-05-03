@@ -29,19 +29,19 @@ descriptions = {
     "page": "a page of text about segmentation",
     "chelsea": "a facial photo of a tabby cat",
     "astronaut": "a portrait of an astronaut with the American flag",
-    "rocket": "a rocket standing on a launchpad",
-    "motorcycle_right": "a red motorcycle standing in a garage",
-    "camera": "a person looking at a camera on a tripod",
-    "horse": "a black-and-white silhouette of a horse", 
-    "coffee": "a cup of coffee on a saucer",
-    "coins": "a collection of coins",
-    "logo": "a green and orange logo with a snake",
-    "colorwheel": "colors distributed on a circle"
+    "rocket": "a rocket standing on a launchpad"
+    # "motorcycle_right": "a red motorcycle standing in a garage",
+    # "camera": "a person looking at a camera on a tripod",
+    # "horse": "a black-and-white silhouette of a horse", 
+    # "coffee": "a cup of coffee on a saucer",
+    # "coins": "a collection of coins",
+    # "logo": "a green and orange logo with a snake",
+    # "colorwheel": "colors distributed on a circle"
 }
 
 if __name__ == '__main__':
-    texts  = list(descriptions.values())[1:]
-    previous_texts = list(previous_posts.values())[1:]
+    texts  = list(descriptions.values())
+    previous_texts = list(previous_posts.values())
     
     # LOAD TEXT IN MEDIAVERSE
     # for content in texts:
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     #     print('[UPLOAD] -- status: {}, {}'.format(response.status_code, response.content))
 
     # LOAD USER'S PREVIOUS TEXTS
-    for content in previous_texts:
+    for content in texts:
         username = 'luigi'
         #random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k = 10))
         arg = '?id='+content+'&type=text&user='+username
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     # POST REQUEST TO RECOMMENDATION SYSTEM
     username = 'luigi'
-    arg = '?k=10&user='+username
+    arg = '?k=8&user='+username
     # response   = requests.post(recommend_url+arg, data=data)
     response   = requests.post(retrieve_url+arg)
     print('[RECOMMEND] -- status: {}, {}'.format(response.status_code, response.content))

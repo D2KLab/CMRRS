@@ -54,6 +54,11 @@ class Container:
     def get_userID(self, embedding):
         return self.content[embedding]["user_id"]
 
+    # def get_previous_posts(self,user):
+    #     embeddings = self.content.keys()
+    #     previous_posts = self.
+    #     return 
+
     def add_content(self, embedding, content_id, user_id):
         self.content[embedding] = {}
         self.content[embedding]["content_id"] = content_id
@@ -187,18 +192,24 @@ def retrieve():
         return jsonify({'contents': contents, 'scores': similarities.tolist()})
     
     else:
-        contents = []
-        similarities = []
-        embeddings    = list(app.config['Container'].get_embeddings())
-        # ids           = [app.config['Container'].get_mvID(embeddings[i]) for i in range(len(embeddings))]
-        for emb in embeddings:
-            cont, simil, user = app.config['Indexer'].retrieve(np.asarray(emb), k)
-            contents.extend([c for (i,c) in enumerate(cont) if user[i] != posting_user])
-            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if user[i] != posting_user])
+        contents       = []
+        similarities   = []
+        embeddings     = list(app.config['Container'].get_embeddings())
+        # ids            = [app.config['Container'].get_mvID(embeddings[i]) for i in range(len(embeddings))]
+        users          = [app.config['Container'].get_userID(embeddings[i]) for i in range(len(embeddings))]
+
+        for (e,embedding) in enumerate(embeddings):
+            # retreive only the similarities of the contents posted by the user
+            if users[e] == posting_user:
+                cont, simil, user = app.config['Indexer'].retrieve(np.asarray(embedding), k)
+                # keep only the recommended content that do not belong to the posting user
+                contents.extend([c for (i,c) in enumerate(cont) if user[i] != posting_user])
+                similarities.extend([s for (i,s) in enumerate(simil.tolist()) if user[i] != posting_user])
         
+        # sort the general list of recommended contents by similarity index
         indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-        # indexes = np.argsort(similarities)
         contents = [contents[i] for i in indexes]
+        
         return jsonify({'contents': contents[-k:], 'scores': similarities_sorted[-k:]})
 
 
