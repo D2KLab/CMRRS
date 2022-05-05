@@ -27,9 +27,16 @@ query, among those stored inside the Faiss index. The top K contents are ranked 
         - k: number of similar content to retrieve;
         - type: "text" or "imege", string describing the data type of the input query.
     - Output:
-        - recommendend texts in the field 'text':
-            - 'contents' is an ordered list containing the ids (string) of the retrieved contents. The list is ordered based on decreasing values of similarity scores (i.e., the first content is the best one retrieved for that query)
-            - 'scores' is an ordered list of similarity scores for the retrieved contents (i.e., the first score represents the similarity between the query and the first content in the 'contents' field).
+        - recommended texts in the field 'text':
+            - 'contents' is an ordered list containing the ids (string) of the retrieved texts. The list is ordered based on decreasing values of similarity scores (i.e., the first content is the best one retrieved (among all texts) for that query)
+            - 'scores' is an ordered list of similarity scores for the retrieved texts (i.e., the first score represents the similarity between the query and the first content in the 'contents' field).
+        - recommended images in the field 'image':
+            - 'contents' is an ordered list containing the ids (string) of the retrieved images. The list is ordered based on decreasing values of similarity scores (i.e., the first content is the best one retrieved (among all images) for that query)
+            - 'scores' is an ordered list of similarity scores for the retrieved images (i.e., the first score represents the similarity between the query and the first content in the 'contents' field).
+        
+#### Retrieval output example
+Given a query 'a page of text about segmentation' with k=4, the retrieve() fuction returns: 
+[RETRIEVE]-- status: 200, b'{"image":{"contents":["4AYKRJ8QFS","HANEP78MN0","VJNL2OH70S","UVL3UWLG6Y"],"scores":[0.3587474226951599,0.22719718515872955,0.22674132883548737,0.22545325756072998]},"text":{"contents":["QICQ8T7NF9","TFGZJJ6UPX","FS5EI089C9","BGDTOVNTL5"],"scores":[0.6652600765228271,0.6554150581359863,0.619107723236084,0.6146003603935242]}}\n'
 
 ## Expose the service
 #### 1. Manual setup
