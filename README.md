@@ -36,7 +36,9 @@ query, among those stored inside the Faiss index. The top K contents are ranked 
         
 #### Retrieval output example
 Given a query 'a page of text about segmentation' with k=4, the retrieve() fuction returns: 
+```
 [RETRIEVE]-- status: 200, b'{"image":{"contents":["4AYKRJ8QFS","HANEP78MN0","VJNL2OH70S","UVL3UWLG6Y"],"scores":[0.3587474226951599,0.22719718515872955,0.22674132883548737,0.22545325756072998]},"text":{"contents":["QICQ8T7NF9","TFGZJJ6UPX","FS5EI089C9","BGDTOVNTL5"],"scores":[0.6652600765228271,0.6554150581359863,0.619107723236084,0.6146003603935242]}}\n'
+```
 
 ## Expose the service
 #### 1. Manual setup
