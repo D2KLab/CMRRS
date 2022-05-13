@@ -7,6 +7,7 @@ import string
 #import time
 
 import skimage
+from data import CocoCaptions
 
 
 
@@ -118,7 +119,7 @@ if __name__ == '__main__':
 
     # POST REQUEST TO RECOMMENDATION SYSTEM
     username = 'luigi'
-    arg = '?k=8&user='+username
+    arg = '?k=4&user='+username
     # response   = requests.post(recommend_url+arg, data=data)
     response   = requests.post(retrieve_url+arg)
     print('[RECOMMEND] -- status: {}, {}'.format(response.status_code, response.content))
