@@ -4,9 +4,11 @@ click==8.0.3
 Flask==2.0.2
 Jinja2==3.0.3
 logstash-formatter==0.5.17
-ftfy  ### for CLIP
-regex ### for CLIP
-tqdm  ### for CLIP
-torch ### for CLIP
-torchvision ### for CLIP
+ftfy==6.1.1  ### for CLIP
+regex==2022.1.18 ### for CLIP
+tqdm==4.62.3  ### for CLIP
+torch==1.10.2 ### for CLIP
+torchvision==0.11.3 ### for CLIP
 git+https://github.com/openai/CLIP.git ### for CLIP
+hdbscan==0.8.28
+sklearn
