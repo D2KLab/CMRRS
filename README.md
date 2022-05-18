@@ -13,6 +13,7 @@ Contents are indexed and searched in the application node by means of **faiss** 
 The user can access the system by means of two functions:
 - **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. 
     - Input:
+        - username: unique identifier of the user who post the content;
         - text or image binary data (refer to usage.py example);
         - id: Mediaverse ID of the content to load;
         - type: "text" or "image", string describing the data type of the content to be loaded.
@@ -20,9 +21,10 @@ The user can access the system by means of two functions:
         - a success message in the field 'msg'
         - the elapsed time for the operation in the field 'time'
 
-- **retrieve()**: the user enters a query (text or image) with the aim of retrieving  as a result the k elements most similar, to the submitted 
+- **retrieve()**: the user enters a query (text or image) with the aim of retrieving as a result the k elements most similar, to the submitted 
 query, among those stored inside the Faiss index. The top K contents are ranked according to the cosine similarity with respect to the input query. 
     - Input:
+        - username: unique identifier of the user who search for a content;
         - text or image binary data (refer to usage.py example);
         - k: number of similar content to retrieve;
         - type: "text" or "imege", string describing the data type of the input query.
