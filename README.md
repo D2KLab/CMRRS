@@ -8,7 +8,7 @@ The service makes use of a pretrained **CLIP** model with:
 Contents are indexed and searched in the application node by means of **faiss** library which speed up similarity search over the representational space.
 
 ## Retrieval
-![APP](restapi.PNG)
+![APP](restapi.png)
 
 The user can access the system by means of two functions:
 - **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. 
