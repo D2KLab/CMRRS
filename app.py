@@ -22,7 +22,6 @@ import torch
 import clip
 from PIL import Image
 from io import BytesIO
-from collections import defaultdict
 
 from operator import itemgetter
 import random
@@ -63,7 +62,7 @@ class Container:
         if username in list(self.content.keys()):
             return list(self.content[username].keys())
         else:
-             return []
+            return []
 
     # def get_mvID(self, username):
     #     return self.content[username]["content_id"]
@@ -155,14 +154,13 @@ class Indexer:
         :param query_embedding: np.ndarray having shape (EMB_SIZE,)
         :param k: retrieve top_k contents from the pool
         """
-        query_embedding  = query_embedding.reshape(1, -1).astype(np.float32)
+        query_embedding            = query_embedding.reshape(1, -1).astype(np.float32)
         # query_embedding = self.index.reconstruct(idx)
         faiss.normalize_L2(query_embedding)
         similarities, contents_idx = self.index.search(query_embedding, k)
-        # assuming only one query
-        # similarities               = similarities[0]
-        contents_idx               = contents_idx[0] #faiss internal indices
-        # mv_content_ids             = [self.faissId2MVId[idx] for idx in contents_idx]
+
+        # faiss internal indices
+        contents_idx               = contents_idx[0]
         users_ids                  = [self.users[idx] for idx in contents_idx]
         return similarities[0], contents_idx, users_ids
 
@@ -276,9 +274,37 @@ def choice(population, weights, k):
         chosen_weights.append(weights[idx])
     return chosen_population, chosen_weights
 
-
 @app.route('/mv_retrieval/v0.1/retrieve_contents', methods=['POST'])
 def retrieve():
+    posting_user      = request.args['user'] 
+    content           = request.data
+    type_query        = request.args['type']
+    k                 = int(request.args['k'])
+
+    types = ["text", "image"]
+    query_embedding   = app.config['ClipEncoder_'+type_query].encode(content, type_query)
+
+    output = {}
+    for type in types:
+
+        # Number of contents posted by the query user
+        n = len(app.config['Container_'+type].get_indexes(posting_user))
+
+        assert k <= app.config['Indexer_'+type].get_len_index() - n, "requesting a number of contents greater than number of contents available"
+
+        simil, indexes, users = app.config['Indexer_'+type].retrieve(query_embedding, k+n)
+        cont_ids = app.config['Container_'+type].from_idx_to_id(indexes, users)
+
+        # Filter out contents retrieved from query user Collection
+        content_ids = [c for (i,c) in enumerate(cont_ids) if users[i] != posting_user]
+        similarities = [s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user]
+
+        output[type] = {'contents': content_ids[:k], 'scores': similarities[:k]}
+    return jsonify(output)
+
+
+@app.route('/mv_retrieval/v0.1/recommend_contents', methods=['POST'])
+def recommend():
     """
     Input is a json containing two fields
 
@@ -289,130 +315,112 @@ def retrieve():
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float])
     """
-    
     k                 = int(request.args['k'])
     posting_user      = request.args['user'] 
 
     types = ["text", "image"]
     output = {}
     
-    if (request.data):
-        content           = request.data
-        type_query        = request.args['type']
-        query_embedding   = app.config['ClipEncoder_'+type_query].encode(content, type_query)
-
-        for type in types: 
-            # voglio sapere quanti contenuti ha postato quell'utente per fare la ricerca k+n
-            n = len(app.config['Container_'+type].get_indexes(posting_user))
-
-            assert k <= app.config['Indexer_'+type].get_len_index() - n, "requesting a number of contents greater than number of contents available"
-
-            simil, indexes, users = app.config['Indexer_'+type].retrieve(query_embedding, k+n)
-            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-
-            contents = [c for (i,c) in enumerate(cont) if users[i] != posting_user]
-            similarities = [s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user]
-
-            output[type] = {'contents': contents[:k], 'scores': similarities[:k]}
-        return jsonify(output)
+    content           = request.data
+    type_query        = request.args['type']
+    query_embedding   = app.config['ClipEncoder_'+type_query].encode(content, type_query)
     
-    else:
-        for type in types: 
-            contents       = []
-            similarities   = []
+    for type in types: 
+        contents       = []
+        similarities   = []
 
-            # vado a prendere gli indici faiss dei contenuti postati dall'utente
-            # per ogni indice faccio un recostruct e prendo l'embedding
-            idx_posted_contents = app.config['Container_'+type].get_indexes(posting_user)
-            embeddings = app.config['Indexer_'+type].get_embedding(idx_posted_contents)
-            n = len(embeddings)
-            assert k <= app.config['Indexer_'+type].get_len_index() - n, "requesting a number of contents greater than number of contents available"
+        # vado a prendere gli indici faiss dei contenuti postati dall'utente
+        # per ogni indice faccio un recostruct e prendo l'embedding
+        idx_posted_contents = app.config['Container_'+type].get_indexes(posting_user)
+        embeddings = app.config['Indexer_'+type].get_embedding(idx_posted_contents)
+        n = len(embeddings)
+        assert k <= app.config['Indexer_'+type].get_len_index() - n, "requesting a number of contents greater than number of contents available"
 
-            # clusterizzo i contenuti
-            clusterer = Clusterer(embeddings)
-            clusterer.fit()
-
-            
-            # se n_clusters == 0: random choice with similarity index as weights
-            # se n_clusters == 1: un seed dal cluster e uno dagli outlier la maggior parte dei contenuti dal principale e tipo il 10% dagli outliers
-            # se n_clusters >= 2: due seed dai due cluster principali e uno dagli outliers
+        # clusterizzo i contenuti
+        clusterer = Clusterer(embeddings)
+        clusterer.fit()
 
         
-            # if there is no clusters
-            if not clusterer.get_clusters_count():
-                print("zero clusters")
-                # ---------------- Random choice with similarity index as weights ------------------------
-                # NOT ONE SEED BUT SEVERAL SEEDS
-                for embedding in embeddings:
-                    simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(embedding), k+n)
-                    cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-                    # keep only the recommended content that do not belong to the posting user
-                    contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
-                    similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
-                
-                sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-                contents = [contents[i] for i in sort_indexes]
+        # se n_clusters == 0: random choice with similarity index as weights
+        # se n_clusters == 1: un seed dal cluster e uno dagli outlier la maggior parte dei contenuti dal principale e tipo il 10% dagli outliers
+        # se n_clusters >= 2: due seed dai due cluster principali e uno dagli outliers
 
-                chosen_contents, chosen_similarities = choice(contents, similarities_sorted, k = k)
-                output[type] = {'contents': chosen_contents, 'scores': chosen_similarities}
-                # comunque questo non va bene perchè ti può ritornare lo stesso contenuto più volte
-
-            elif len(clusterer.get_clusters_count()) == 1:
-                print("un cluster")
-                cluster_seed = clusterer.get_medoid(0)
-                outlier_seed = clusterer.get_outlier()
-                cluster_k = k - k//5
-                outlier_k = k - cluster_k
-
-                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed), cluster_k+n)
+    
+        # if there is no clusters
+        if not clusterer.get_clusters_count():
+            print("zero clusters")
+            # ---------------- Random choice with similarity index as weights ------------------------
+            # NOT ONE SEED BUT SEVERAL SEEDS
+            for embedding in embeddings:
+                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(embedding), k+n)
                 cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-                contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user and i < k])
-                similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user and i < k])
-
-                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(outlier_seed), outlier_k+n)
-                cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-                contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user and i < k])
-                similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user and i < k])
-
-                sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-                contents_sorted = [contents[i] for i in sort_indexes]
-
-                output[type] = {'contents': contents_sorted, 'scores': similarities_sorted}
-
-
-            elif len(clusterer.get_clusters_count()) >= 2:
-                print("due o più")
-                cluster_seed1 = clusterer.get_medoid(0)
-                cluster_seed2 = clusterer.get_medoid(1)
-                outlier_seed = clusterer.get_outlier()
-                # outlier_k = int(k/10)
-                # cluster2_k = (k - outlier_k) // 3
-                # cluster1_k = k - cluster2_k - outlier_k
-                outlier_k = k
-                cluster2_k = k
-                cluster1_k = k
-
-                # bisogna fare che per gli embeddings delle imagini ritorniamo sia immagini che testo e per gli embeddings dei testi idem
-
-                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed1), cluster1_k+n)
-                cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+                # keep only the recommended content that do not belong to the posting user
                 contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
                 similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+            
+            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+            contents = [contents[i] for i in sort_indexes]
 
-                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed2), cluster2_k+n)
-                cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-                contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
-                similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+            chosen_contents, chosen_similarities = choice(contents, similarities_sorted, k = k)
+            output[type] = {'contents': chosen_contents, 'scores': chosen_similarities}
+            # comunque questo non va bene perchè ti può ritornare lo stesso contenuto più volte
 
-                simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(outlier_seed), outlier_k+n)
-                cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
-                contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
-                similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+        elif len(clusterer.get_clusters_count()) == 1:
+            print("un cluster")
+            cluster_seed = clusterer.get_medoid(0)
+            outlier_seed = clusterer.get_outlier()
+            cluster_k = k - k//5
+            outlier_k = k - cluster_k
 
-                sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-                contents_sorted = [contents[i] for i in sort_indexes]
+            simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed), cluster_k+n)
+            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+            contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user and i < k])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user and i < k])
 
-                output[type] = {'contents': contents_sorted[-k:], 'scores': similarities_sorted[-k:]} # fare reverse
+            simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(outlier_seed), outlier_k+n)
+            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+            contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user and i < k])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user and i < k])
+
+            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+            contents_sorted = [contents[i] for i in sort_indexes]
+
+            output[type] = {'contents': contents_sorted, 'scores': similarities_sorted}
+
+
+        elif len(clusterer.get_clusters_count()) >= 2:
+            print("due o più")
+            cluster_seed1 = clusterer.get_medoid(0)
+            cluster_seed2 = clusterer.get_medoid(1)
+            outlier_seed = clusterer.get_outlier()
+            # outlier_k = int(k/10)
+            # cluster2_k = (k - outlier_k) // 3
+            # cluster1_k = k - cluster2_k - outlier_k
+            outlier_k = k
+            cluster2_k = k
+            cluster1_k = k
+
+            # bisogna fare che per gli embeddings delle imagini ritorniamo sia immagini che testo e per gli embeddings dei testi idem
+
+            simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed1), cluster1_k+n)
+            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+            contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+
+            simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(cluster_seed2), cluster2_k+n)
+            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+            contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+
+            simil, indexes, users = app.config['Indexer_'+type].retrieve(np.asarray(outlier_seed), outlier_k+n)
+            cont = app.config['Container_'+type].from_idx_to_id(indexes, users)
+            contents.extend([c for (i,c) in enumerate(cont) if users[i] != posting_user])
+            similarities.extend([s for (i,s) in enumerate(simil.tolist()) if users[i] != posting_user])
+
+            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+            contents_sorted = [contents[i] for i in sort_indexes]
+
+            output[type] = {'contents': contents_sorted[-k:], 'scores': similarities_sorted[-k:]} # fare reverse
 
         return jsonify(output) 
 
