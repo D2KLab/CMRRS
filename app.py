@@ -106,7 +106,7 @@ class ClipEncoder:
             with torch.no_grad():
                 embedding = self.model.encode_image(image).detach().cpu().numpy().reshape(512).astype(np.float32)
         else: 
-            raise  ValueError(colored(255,0,0, 'Not valid type value, enter text or image'))
+            raise  ValueError(colored(255,0,0, "Not valid type value, enter 'text' or 'image'"))
 
         return embedding
         
