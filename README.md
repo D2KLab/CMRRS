@@ -11,7 +11,7 @@ Contents are indexed and searched in the application node by means of **faiss** 
 ![APP](retrievalsys.png)
 
 The user can access the system by means of two functions:
-- **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. 
+- **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. This function accepts one content at a time. 
     - Input:
         - username: unique identifier of the user who post the content;
         - text or image binary data (refer to usage.py example);
@@ -44,6 +44,8 @@ Given a query 'a page of text about segmentation' with k=4, the retrieve() fucti
 
 ## Recommendation
 ![APP](recsys.png)
+
+The recommendation service is exposed by the recommend() function which resides on the same REST API of the retrieval system. Hence, application is has only one container exposing 3 functions: add_content(), retrieve, recommend().
 
 
 
