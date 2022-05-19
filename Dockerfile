@@ -14,6 +14,5 @@ SHELL ["conda", "run", "-n", "mediaverse_rest", "/bin/bash", "-c"]
 RUN conda install -c pytorch faiss-cpu
 RUN pip install -r requirements.txt
 
-EXPOSE 9000
 COPY app.py .
-CMD ["flask", "run", "--port", "6000"]
+CMD ["flask", "run", "--port", "8000"]
