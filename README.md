@@ -45,7 +45,7 @@ Given a query 'a page of text about segmentation' with k=4, the retrieve() fucti
 ## Recommendation
 ![APP](recsys.png)
 
-The recommendation service is exposed by the recommend() function which resides on the same REST API of the retrieval system. Hence, application is has only one container exposing 3 functions: add_content(), retrieve, recommend().
+The recommendation service is exposed by the recommend() function which resides on the same REST API of the retrieval system. Hence, the application has **only one container** exposing 3 functions: add_content(), retrieve, recommend().
 
 
 
