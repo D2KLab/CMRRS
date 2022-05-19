@@ -8,7 +8,7 @@ The service makes use of a pretrained **CLIP** model with:
 Contents are indexed and searched in the application node by means of **faiss** library which speed up similarity search over the representational space.
 
 ## Retrieval
-![APP](restapi.png)
+![APP](retrievalsys.png)
 
 The user can access the system by means of two functions:
 - **add_content()**: in this way the user can add a content (text or image) to the system. It will be encoded to a 512 embedding vector and stored into the Faiss index. 
@@ -41,6 +41,12 @@ Given a query 'a page of text about segmentation' with k=4, the retrieve() fucti
 ```
 [RETRIEVE]-- status: 200, b'{"image":{"contents":["4AYKRJ8QFS","HANEP78MN0","VJNL2OH70S","UVL3UWLG6Y"],"scores":[0.3587474226951599,0.22719718515872955,0.22674132883548737,0.22545325756072998]},"text":{"contents":["QICQ8T7NF9","TFGZJJ6UPX","FS5EI089C9","BGDTOVNTL5"],"scores":[0.6652600765228271,0.6554150581359863,0.619107723236084,0.6146003603935242]}}\n'
 ```
+
+## Recommendation
+![APP](recsys.png)
+
+
+
 
 ## Expose the service
 #### 1. Manual setup
