@@ -48,7 +48,7 @@ Given a query 'a page of text about segmentation' with k=4, the retrieve() fucti
 
 The recommendation service is exposed by the recommend() function which resides on the same REST API of the retrieval system. Hence, the application has **only one container** exposing 3 functions: add_content(), retrieve, recommend().
 
-The recommendation function makes use of user previous contents posted to create a seed which is then given as input to the search system. The recommended contents are required to satisfy: similarity with respect to the user seed and a certain degree of novelty compared to his post history (show to the user new contents). 
+The recommendation function makes use of user previous contents posted to create a seed which is then given as input to the search system. The recommended contents are required to satisfy: similarity with respect to the user seed and a certain degree of diversity compared to his post history (show to the user new contents). 
 
 **HDBSCAN** was used to build the user seed. This technique uses density of neighbouring points to construct clusters, allowing clusters of any shape to be identified. User previous posts are clustered and new contents are recommended distinguishing from three cases: 0 clusters, 1 cluster, 2 or more clusters.
 
