@@ -24,9 +24,9 @@ The user can access the system by means of two functions:
 - **retrieve()**: the user enters a query (text or image) with the aim of retrieving as a result the k elements most similar, to the submitted 
 query, among those stored inside the Faiss index. The top K contents are ranked according to the cosine similarity with respect to the input query. 
     - Input:
-        - username: unique identifier of the user who search for a content;
+        - username: unique identifier of the user who search for a content (its contents are excluded from the retrieval process);
         - text or image binary data (refer to usage.py example);
-        - k: number of similar content to retrieve;
+        - k: number of similar contents to retrieve;
         - type: "text" or "imege", string describing the data type of the input query.
     - Output:
         - recommended texts in the field 'text':
@@ -42,10 +42,23 @@ Given a query 'a page of text about segmentation' with k=4, the retrieve() fucti
 [RETRIEVE]-- status: 200, b'{"image":{"contents":["4AYKRJ8QFS","HANEP78MN0","VJNL2OH70S","UVL3UWLG6Y"],"scores":[0.3587474226951599,0.22719718515872955,0.22674132883548737,0.22545325756072998]},"text":{"contents":["QICQ8T7NF9","TFGZJJ6UPX","FS5EI089C9","BGDTOVNTL5"],"scores":[0.6652600765228271,0.6554150581359863,0.619107723236084,0.6146003603935242]}}\n'
 ```
 
+[[HDBSCAN]](https://github.com/scikit-learn-contrib/hdbscan)
 ## Recommendation
 ![APP](recsys.png)
 
 The recommendation service is exposed by the recommend() function which resides on the same REST API of the retrieval system. Hence, the application has **only one container** exposing 3 functions: add_content(), retrieve, recommend().
+
+The recommendation function makes use of user previous contents posted to create a seed given as input to the search system. The recommended contents are required to satisfy: similarity with respect to the user seed and a certain degree of novelty compared to his post history (show to the user new contents). 
+
+**HDBSCAN** was used to build the user seed. This technique uses density of neighbouring points to construct clusters, allowing clusters of any shape to be identified. User previous posts are clustered and new contents are recommended distinguishing from three cases: 0 clusters, 1 cluster, 2 or more clusters.
+
+- **recommend()**: the user does not enter any query. Starting from a seed, the System suggests to the user new contents based on user post history and a certain degree of novelty. The top K contents are ranked according to the cosine similarity with respect to the generated seed.
+    - Input:
+        - username: unique identifier of the user who search for a content (its contents are excluded from the recommendation process);
+        - k: number of similar contents to recommend; 
+    - Output:
+        - recommended texts in the field 'text' (refer to the Retrieval output section)
+        - recommended images in the field 'image' (refer to the Retrieval output section)
 
 
 ## Expose the service
