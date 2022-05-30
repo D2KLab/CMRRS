@@ -9,4 +9,6 @@ services:
       - .env
     volumes:
       - ../:/app/
-    network_mode: "host"
+    #network_mode: "host"
+    ports:
+      - "6000:6000"
