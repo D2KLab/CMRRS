@@ -56,8 +56,8 @@ The recommendation function makes use of user previous contents posted to create
     - Input:
         - username: unique identifier of the user who search for a content (its contents are excluded from the recommendation process);
         - k: number of similar contents to recommend; 
-    - Output (It is divided into 2 sections)
-        -'text' (if the user seed is build starting from text contents):
+    - Output (It is divided into 2 sections):
+        - 'text' (if the user seed is build starting from text contents):
             - (text2text) - recommended texts in the field 'text':
                 - 'contents' is an ordered list containing the ids (string) of the retrieved texts. The list is ordered based on decreasing values of similarity scores (i.e., the first content is the best one retrieved (among all texts) for that query).
                 - 'scores' is an ordered list of similarity scores for the retrieved texts (i.e., the first score represents the similarity between the query and the first content in the 'contents' field).
@@ -73,9 +73,8 @@ The recommendation function makes use of user previous contents posted to create
                 - 'scores': same as above.
 
 #### Recommendation output example
-Given k=3, the recommend() fuction returns: 
+Given k=3, the recommend() fuction returns:
 ```
-
 ```
 
 ## Expose the service
