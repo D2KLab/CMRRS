@@ -1,2 +1,2 @@
 #!/bin/bash
-flask run --port 6000
+flask run --port $PORT
