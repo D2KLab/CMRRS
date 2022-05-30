@@ -91,21 +91,18 @@ flask run --port <PORT>
 #### 2. Run a Docker container
 
 ```
+cd docker
 docker build -t flask-restapi .
 docker tag flask-restapi mediaverse/flask-restapi
 docker rmi flask-restapi
 
 docker run -d --network host --name mediaverse_rest mediaverse/flask-restapi
-
-docker ps
-docker stop mediaverse_rest
-docker rm mediaverse_rest
-docker rmi mediaverse/flask-restapi
 ```
 
 As the instrutions show it is suggested to run the application in the host network providing an available port (settable in the Dockerfile).
 
 #### 3. Docker-compose up
 ```
+cd docker
 docker-compose up --build
 ```
