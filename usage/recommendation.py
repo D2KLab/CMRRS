@@ -9,8 +9,13 @@ import string
 import skimage
 from data import CocoCaptions
 
+env_vars = '../docker/.env'
+for var in open(env_vars):
+    key, value = var.split('=')
+    os.environ[key] = value
+
 PORT = os.environ.get('PORT') 
-PORT = 8000
+# PORT = 8000
 update_url   = f'http://localhost:{PORT}/mv_retrieval/v0.1/add_content'
 recommend_url = f'http://localhost:{PORT}/mv_retrieval/v0.1/recommend_contents'
 
@@ -39,6 +44,7 @@ descriptions = {
 
 if __name__ == '__main__':
     texts  = list(descriptions.values())
+    names = list(descriptions.keys())
     
     print('-------------LOAD TEXT IN MEDIAVERSE-------------')
     username = 'mario.rossi'
@@ -60,7 +66,7 @@ if __name__ == '__main__':
         arg = '?id='+random_str+'&type=image&user='+username
 
         name = os.path.splitext(filename)[0]
-        if name not in descriptions[3:]:
+        if name not in names[3:]:
             continue
         with open(os.path.join(skimage.data_dir, filename), 'rb') as f:
             data = f.read()
@@ -70,7 +76,7 @@ if __name__ == '__main__':
 
     print('-------------LOAD USERS POSTS TEXT-------------')
     username = 'john.smith'
-    for content in texts[3:]:
+    for content in texts[:3]:
         random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k = 10))
         arg = '?id='+random_str+'&type=text&user='+username
 
@@ -88,7 +94,7 @@ if __name__ == '__main__':
         arg = '?id='+random_str+'&type=image&user='+username
 
         name = os.path.splitext(filename)[0]
-        if name not in descriptions[3:]:
+        if name not in names[:3]:
             continue
         with open(os.path.join(skimage.data_dir, filename), 'rb') as f:
             data = f.read()

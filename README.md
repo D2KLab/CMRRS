@@ -75,6 +75,7 @@ The recommendation function makes use of user previous contents posted to create
 #### Recommendation output example
 Given k=3, the recommend() fuction returns:
 ```
+[RECOMMEND] -- status: 200, b'{"image":{"image":{"contents":["Q9M44FL6L5","H44LCK8JU0","LTGEWZ697I"],"scores":[0.5808983445167542,1.0,0.6429423689842224]},"text":{"contents":["XSAJZNLY2Y","SVNPOCN4IP","2MDV1DZTG3"],"scores":[0.2598402500152588,0.19465529918670654,0.22304044663906097]}},"text":{"image":{"contents":["H44LCK8JU0","Q9M44FL6L5","CCUXN022AE"],"scores":[0.16986674070358276,0.17051610350608826,0.2229352593421936]},"text":{"contents":["QGQD2C6MOX","2MDV1DZTG3","MM8DYVY3S7"],"scores":[0.6117303371429443,0.6309608817100525,1.0000001192092896]}}}
 ```
 
 ## Expose the service
