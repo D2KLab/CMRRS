@@ -430,7 +430,7 @@ def recommend():
                 sort_indexes, similarities = zip(*sorted(enumerate(chosen_similarities), key=itemgetter(1)))
                 contents = [chosen_contents[i] for i in sort_indexes]
 
-                output[in_type][out_type] = {'contents':  list(chosen_contents), 'scores':  list(chosen_similarities)}
+                output[in_type][out_type] = {'contents':  list(contents), 'scores':  list(similarities)}
 
         elif len(clusterer.get_clusters_count()) == 1:
             print("un cluster " + str(in_type))
