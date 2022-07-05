@@ -136,3 +136,6 @@ dmypy.json
 *prova*.py
 *data*.py
 *imagenet_classes*.txt
+*csv
+*diversity*.png
+*tmp*.txt

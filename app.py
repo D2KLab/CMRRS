@@ -8,7 +8,6 @@ Doubts:
     - Faiss assigns an internal ID to each embedding in the `index` structure. We should build a mapping to the global ID of the content within the MV network
 """
 
-import logging
 from typing import List, Tuple
 from datetime import datetime
 import os
@@ -17,12 +16,16 @@ import seaborn as sns
 import faiss
 import numpy as np
 from flask import Flask, jsonify, request
-#from logstash_formatter import LogstashFormatterV1
+
+import sys
+import logging
+from logstash_formatter import LogstashFormatterV1
 
 import torch
 import clip
 from PIL import Image
 from io import BytesIO
+from torch.nn import Softmax
 
 from collections import defaultdict
 
@@ -41,6 +44,9 @@ CONTAINER = './contents'
 
 def colored(r, g, b, text):
     return "\033[38;2;{};{};{}m{} \033[38;2;255;255;255m".format(r, g, b, text)
+
+# configure logging
+logging.basicConfig(filename='log/flask.log', filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 class Container:
     def __init__(self) -> None:
@@ -177,7 +183,7 @@ class Indexer:
 
 class Clusterer:
     def __init__(self, embeddings):
-        self.clusterer = hdbscan.HDBSCAN(alpha=1.0, cluster_selection_method='leaf')
+        self.clusterer = hdbscan.HDBSCAN(alpha=1.0)
         self.embeddings = embeddings
 
     def fit(self):
@@ -284,30 +290,37 @@ def add_content():
     end_t             = datetime.now()
     elapsed           = (end_t-start_t).total_seconds()
     out_msg           = {'msg': 'Content {} successfully added to the indexer by user {}'.format(content_id, user),
-                         'time': elapsed} 
+                         'time': elapsed}
     return jsonify(out_msg), 200
 
 
-def cdf(weights):
-    total = sum(weights)
-    result = []
-    cumsum = 0
-    for w in weights:
-        cumsum += w
-        result.append(cumsum / total)
-    return result
-
 def choice(population, weights, k):
     assert len(population) == len(weights)
-    cdf_vals = cdf(weights)
+    cdf_vals = np.exp(weights)/sum(np.exp(weights))
     chosen_population = []
     chosen_weights = []
-    for i in range(k):
-        x = random.random()
-        idx = bisect.bisect(cdf_vals, x)
-        chosen_population.append(population[idx])
-        chosen_weights.append(weights[idx])
+    x_list = []
+    i = 0
+    while i < k:
+        x = int(np.random.choice(len(population), 1, p=cdf_vals))
+        if x not in x_list:
+            chosen_population.append(population[x])
+            chosen_weights.append(weights[x])
+            x_list.append(x)
+            i += 1
     return chosen_population, chosen_weights
+
+def recommend_content(seed, k, posting_user, output_type):
+    contents       = []
+    similarities   = []
+    simil, indexes, users = app.config['Indexer_'+output_type].retrieve(np.asarray(seed), k)
+    cont = app.config['Container_'+output_type].from_idx_to_id(indexes, users)
+    # keep only the recommended content that do not belong to the posting user and that are not already present in the list of recommended content
+    for (i,c) in enumerate(cont):
+        if users[i] != posting_user and c not in contents:
+            contents.append(c)
+            similarities.append(float(simil[i]))
+    return contents, similarities
 
 @app.route('/mv_retrieval/v0.1/retrieve_contents', methods=['POST'])
 def retrieve():
@@ -358,24 +371,33 @@ def recommend():
     """
     k                 = int(request.args['k'])
     posting_user      = request.args['user'] 
+    d                 = 0.2 # percentage of k returned from outlier seed
 
-    types = ["text", "image"]
+    input_types = ["text", "image"]
+    output_types = ["text", "image"]
     output = {"text": {}, "image": {}}
 
     
-    for type in types: 
-
-        # vado a prendere gli indici faiss dei contenuti postati dall'utente
-        # per ogni indice faccio un recostruct e prendo l'embedding
-        idx_posted_contents = app.config['Container_'+type].get_indexes(posting_user)
-        embeddings = app.config['Indexer_'+type].get_embedding(idx_posted_contents)
+    for in_type in input_types: 
+        # take the faiss indexes of the user's previous posts
+        idx_posted_contents = app.config['Container_'+in_type].get_indexes(posting_user)
+        # for each index reconstruct the embedding
+        embeddings = app.config['Indexer_'+in_type].get_embedding(idx_posted_contents)
         n = len(embeddings)
-        assert k <= app.config['Indexer_'+type].get_len_index() - n, "requesting a number of contents greater than number of contents available"
+        total = app.config['Indexer_'+in_type].get_len_index()
 
-        # clusterizzo i contenuti
+        # No contents of type 'type' other than user's ones
+        # if total - n == 0:
+        #     output[type] = 'No contents available other than {} ones'.format(posting_user)
+        #     continue
+
+        assert k <= total - n, f"Requesting a number of '{in_type}' contents greater than number of '{in_type}' contents available. Choose k <= {total-n}"
+
+        # HDBSCAN clustering of the previous content
         clusterer = Clusterer(embeddings)
         clusterer.fit()
 
+        # UNCOMMENT FOR A 2D REPRESENTATION OF THE CLUSTERING
         # projection = TSNE().fit_transform(embeddings)
         # color_palette = sns.color_palette()
         # cluster_colors = [color_palette[x] if x >= 0
@@ -390,209 +412,91 @@ def recommend():
         # plt.savefig("./images_val/input/clusterization_"+type+".png")
 
         
-        # se n_clusters == 0: random choice with similarity index as weights
-        # se n_clusters == 1: un seed dal cluster e uno dagli outlier la maggior parte dei contenuti dal principale e tipo il 10% dagli outliers
-        # se n_clusters >= 2: due seed dai due cluster principali e uno dagli outliers
+        # if n_clusters == 0: random choice with similarity index as weights
+        # if n_clusters == 1: one seed from cluster and one from random outlier
+        # if n_clusters >= 2: two seeds from the two main clusters (one each) and one from the outliers
 
     
-        # if there is no clusters
+        # if there are no cluster: random choice with similarity indexs as weights --> number of seeds = n
         if not clusterer.get_clusters_count():
-            # print("zero clusters "+ str(type))
-            # ---------------- Random choice with similarity index as weights ------------------------
-            # NOT ONE SEED BUT SEVERAL SEEDS
-            contents       = []
-            similarities   = []
-            for embedding in embeddings:
-                simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(embedding), k+n)
-                cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-                # simil = list(simil)
-                # keep only the recommended content that do not belong to the posting user and that are not already present
-                for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-                # print(contents)
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents = [contents[i] for i in sort_indexes]
+            print("zero clusters "+ str(in_type))
+            for out_type in output_types:
 
-            chosen_contents, chosen_similarities = choice(contents, similarities_sorted, k = k)
-            # print(chosen_contents)
-            output[type]["text"] = {'contents':  list(chosen_contents), 'scores':  list(chosen_similarities)}
-            # comunque questo non va bene perchè ti può ritornare lo stesso contenuto più volte
+                for embedding in embeddings:
+                    contents, similarities = recommend_content(embedding, k+n, posting_user, out_type)
+                # select random content with a probability built on similarity scores
+                chosen_contents, chosen_similarities = choice(contents, similarities, k = k)
+                # sort the content according to similarity score
+                sort_indexes, similarities = zip(*sorted(enumerate(chosen_similarities), key=itemgetter(1)))
+                contents = [chosen_contents[i] for i in sort_indexes]
 
-            contents       = []
-            similarities   = []
-            for embedding in embeddings:
-                simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(embedding), k+n)
-                cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-                # simil = list(simil)
-                # keep only the recommended content that do not belong to the posting user and that has not been already recommended by other seeds
-                for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents = [contents[i] for i in sort_indexes]
-
-            chosen_contents, chosen_similarities = choice(contents, similarities_sorted, k = k)
-            output[type]["image"] = {'contents':  list(chosen_contents), 'scores':  list(chosen_similarities)}
+                output[in_type][out_type] = {'contents':  list(chosen_contents), 'scores':  list(chosen_similarities)}
 
         elif len(clusterer.get_clusters_count()) == 1:
-            # print("un cluster " + str(type))
-            
+            print("un cluster " + str(in_type))
+
+            # select one seed from the cluster and one from a random outlier
             cluster_seed = clusterer.get_medoid(0)
             outlier_seed = clusterer.get_outlier()
-            cluster_k = k - k//5
-            outlier_k = k - cluster_k
+            # return a percentage of k from the outlier determined by parameter d
+            outlier_k = int(k*d)
+            cluster_k = k - outlier_k
 
-            ############ TEMP ##############
-            # voglio sapere l'id dell'outlier scelto come seed
-            # print("Chosen seed for the outliers: ", app.config['Indexer_'+type].get_id_from_embedding(outlier_seed, posting_user, type))
-            # print("Chosen seed for the cluster: ", app.config['Indexer_'+type].get_id_from_embedding(cluster_seed, posting_user, type))
-
-            # from "type" retrieve similar texts
-            contents       = []
-            similarities   = []
-            simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(cluster_seed), cluster_k+n)
-            cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster_k]
-            similarities = similarities[:cluster_k]
+            # UNCOMMENT to print the ids of the chosen seeds
+            # print("Chosen seed for the outliers: ", app.config['Indexer_'+in_type].get_id_from_embedding(outlier_seed, posting_user, in_type))
+            # print("Chosen seed for the cluster: ", app.config['Indexer_'+in_type].get_id_from_embedding(cluster_seed, posting_user, in_type))            
             
-            simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(outlier_seed), outlier_k+n)
-            cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:k]
-            similarities = similarities[:k]
+            for out_type in output_types:
+                # retrieve content from cluster seed
+                contents_cluster, similarities_cluster = recommend_content(cluster_seed, cluster_k+n, posting_user, out_type)
+                contents = contents_cluster[:cluster_k]
+                similarities = similarities_cluster[:cluster_k]
+                # retrieve content from outlier seed
+                contents_outlier, similarities_outlier = recommend_content(outlier_seed, outlier_k+n, posting_user, out_type)
+                contents.extend(contents_outlier[:outlier_k])
+                similarities.extend(similarities_outlier[:outlier_k])
 
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents_sorted = [contents[i] for i in sort_indexes]
+                sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+                contents_sorted = [contents[i] for i in sort_indexes]
 
-            output[type]["text"] = {'contents':  list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
-            
-            # from "type" retrieve similar images
-            contents       = []
-            similarities   = []
-            simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(cluster_seed), cluster_k+n)
-            cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster_k]
-            similarities = similarities[:cluster_k]
-
-            simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(outlier_seed), outlier_k+n)
-            cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:k]
-            similarities = similarities[:k]
-
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents_sorted = [contents[i] for i in sort_indexes]
-
-            output[type]["image"] = {'contents':  list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
+                output[in_type][out_type] = {'contents':  list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
 
 
         elif len(clusterer.get_clusters_count()) >= 2:
-            # print("due o più clusters " + type)
+            print("due o più clusters " + in_type)
             contents       = []
             similarities   = []
             cluster_seed1 = clusterer.get_medoid(clusterer.get_main_clusters()[0])
             cluster_seed2 = clusterer.get_medoid(clusterer.get_main_clusters()[1])
             outlier_seed = clusterer.get_outlier()
-            # outlier_k = int(k/10)
-            # cluster2_k = (k - outlier_k) // 3
-            # cluster1_k = k - cluster2_k - outlier_k
-            outlier_k = k//5
+
+            outlier_k = int(k*d)
             cluster2_k = (k - outlier_k)//2
             cluster1_k = k - cluster2_k - outlier_k
-            # print(outlier_k, cluster1_k, cluster2_k)
 
+            # UNCOMMENT to print the ids of the chosen seeds
             # print("Chosen seed for the outliers: ", app.config['Indexer_'+type].get_id_from_embedding(outlier_seed, posting_user, type))
             # print("Chosen seed for the cluster 1: ", app.config['Indexer_'+type].get_id_from_embedding(cluster_seed1, posting_user, type))
             # print("Chosen seed for the cluster 2: ", app.config['Indexer_'+type].get_id_from_embedding(cluster_seed2, posting_user, type))
 
-            # bisogna fare che per gli embeddings delle imagini ritorniamo sia immagini che testo e per gli embeddings dei testi idem
+            for out_type in output_types:
+                # retrieve content from main cluster seed
+                contents_cluster1, similarities_cluster1 = recommend_content(cluster_seed1, cluster1_k+n, posting_user, out_type)
+                contents = contents_cluster1[:cluster1_k]
+                similarities = similarities_cluster1[:cluster1_k]
+                # retrieve content from the second cluster seed
+                contents_cluster2, similarities_cluster2 = recommend_content(cluster_seed2, cluster2_k+n, posting_user, out_type)
+                contents.extend(contents_cluster2[:cluster2_k])
+                similarities.extend(similarities_cluster2[:cluster2_k])
+                # retrieve content from outlier seed
+                contents_outlier, similarities_outlier = recommend_content(outlier_seed, outlier_k+n, posting_user, out_type)
+                contents.extend(contents_outlier[:outlier_k])
+                similarities.extend(similarities_outlier[:outlier_k])
 
-            contents       = []
-            similarities   = []
-            simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(cluster_seed1), cluster1_k+n)
-            cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster1_k]
-            similarities = similarities[:cluster1_k]
+                sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
+                contents_sorted = [contents[i] for i in sort_indexes]
 
-            simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(cluster_seed2), cluster2_k+n)
-            cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster1_k+cluster2_k]
-            similarities = similarities[:cluster1_k+cluster2_k]
-            
-            simil, indexes, users = app.config['Indexer_text'].retrieve(np.asarray(outlier_seed), outlier_k+n)
-            cont = app.config['Container_text'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:k]
-            similarities = similarities[:k]
-
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents_sorted = [contents[i] for i in sort_indexes]
-
-            output[type]["text"] = {'contents':  list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
-            
-            # from "type" retrieve similar images
-            contents       = []
-            similarities   = []
-            simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(cluster_seed1), cluster1_k+n)
-            cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster1_k]
-            similarities = similarities[:cluster1_k]
-
-            simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(cluster_seed2), cluster2_k+n)
-            cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:cluster1_k+cluster2_k]
-            similarities = similarities[:cluster1_k+cluster2_k]
-
-            simil, indexes, users = app.config['Indexer_image'].retrieve(np.asarray(outlier_seed), outlier_k+n)
-            cont = app.config['Container_image'].from_idx_to_id(indexes, users)
-            for (i,c) in enumerate(cont):
-                    if users[i] != posting_user and c not in contents:
-                        contents.append(c)
-                        similarities.append(float(simil[i]))
-            contents = contents[:k]
-            similarities = similarities[:k]
-
-            sort_indexes, similarities_sorted = zip(*sorted(enumerate(similarities), key=itemgetter(1)))
-            contents_sorted = [contents[i] for i in sort_indexes]
-
-            output[type]["image"] = {'contents': list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
+                output[in_type][out_type] = {'contents':  list(contents_sorted[::-1]), 'scores':  list(similarities_sorted[::-1])}
 
     return jsonify(dict(output))
 
