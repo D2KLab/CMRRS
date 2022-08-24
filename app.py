@@ -61,25 +61,18 @@ class Container:
         self.content = {}
     
     def from_idx_to_id(self, faiss_idx, username):
-        # le variabili passate sono nd arrays
         # assert isinstance(faiss_idx, list), "Expecting list of indexes"
         # assert isinstance(username, list), "Expecting list of users"
         content_ids = []
         for (i,idx) in enumerate(faiss_idx):
-            content_ids.append(self.content[username[i]][idx][-1]) # per ogni indice ritorniamo il content id più recente
+            content_ids.append(self.content[username[i]][idx][-1]) # return only the latest content id (mediaverse id) 
         return content_ids
 
     def get_indexes(self, username):
         if username in list(self.content.keys()):
-            return list(self.content[username].keys())
+            return list(self.content[username].keys()) # return all faiss indexes associated to input username
         else:
             return []
-
-    # def get_mvID(self, username):
-    #     return self.content[username]["content_id"]
-    
-    # def get_userID(self):
-    #     return list(self.content.keys())
 
     def add_content(self, faiss_idx, content_id, username):
         if username in list(self.content.keys()): 
@@ -270,19 +263,6 @@ def add_content():
     user              = request.args['user']
 
     content_embedding = app.config['ClipEncoder_'+type].encode(content, type)
-    # rendo gli idx relativi a quell'user, faccio il reconstruct e controllo se gli embedding ci sono già
-
-    # Duplicate Check -- No duplicate
-    # s checks
-    # user_faiss_idx = app.config['Container_'+type].get_indexes(user)
-    # if user_faiss_idx:
-    #     for idx in user_faiss_idx:
-    #         if content_embedding == app.config['Indexer_'+type].get_embedding(idx):
-    #             content_id        =  app.config['Container_'+type]
-    #             elapsed           = (datetime.now()-start_t).total_seconds()
-    #             out_msg           = {'msg': 'User: {}. Content arleady present in the MV archive with id: {}'.format(user, ),
-    #                                 'time': elapsed} 
-    #             return jsonify(out_msg), 200
 
     faiss_idx = app.config['Indexer_'+type].add_content(content_embedding, user, type)
     app.config['Container_'+type].add_content(faiss_idx, content_id, user)
