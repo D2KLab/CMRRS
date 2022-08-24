@@ -10,7 +10,7 @@ for var in open(env_vars):
     key, value = var.split('=')
     os.environ[key] = value
 
-PORT = os.environ.get('PORT') 
+PORT         = os.environ.get('PORT') 
 
 update_url   = f'http://localhost:{PORT}/mv_retrieval/v0.1/add_content'
 retrieve_url = f'http://localhost:{PORT}/mv_retrieval/v0.1/retrieve_contents'
@@ -55,6 +55,10 @@ if __name__ == '__main__':
         name = os.path.splitext(filename)[0]
         if name not in descriptions:
             continue
+
+        if name=='page':
+            relevant_img_id = random_str
+
         with open(os.path.join(skimage.data_dir, filename), 'rb') as f:
             data = f.read()
 
@@ -64,7 +68,7 @@ if __name__ == '__main__':
     print('-------------QUERY-------------')
     username = 'john.smith'
     query = "a page of text about segmentation"
-    print('QUERY:', query)
+    print('QUERY-RELEVANT IMG ID:', query, '-', relevant_img_id)
     with open('tmpfile.txt', 'w') as f:
         f.write(query)
     with open('tmpfile.txt', 'rb') as f:

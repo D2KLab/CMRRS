@@ -443,8 +443,8 @@ def recommend():
             cluster_k = k - outlier_k
 
             # UNCOMMENT to print the ids of the chosen seeds
-            # print("Chosen seed for the outliers: ", app.config['Indexer_'+in_type].get_id_from_embedding(outlier_seed, posting_user, in_type))
-            # print("Chosen seed for the cluster: ", app.config['Indexer_'+in_type].get_id_from_embedding(cluster_seed, posting_user, in_type))            
+            print("Chosen seed for the outliers: ", app.config['Indexer_'+in_type].get_id_from_embedding(outlier_seed, posting_user, in_type))
+            print("Chosen seed for the cluster: ", app.config['Indexer_'+in_type].get_id_from_embedding(cluster_seed, posting_user, in_type))            
             
             for out_type in output_types:
                 # retrieve content from cluster seed
@@ -475,9 +475,9 @@ def recommend():
             cluster1_k = k - cluster2_k - outlier_k
 
             # UNCOMMENT to print the ids of the chosen seeds
-            # print("Chosen seed for the outliers: ", app.config['Indexer_'+type].get_id_from_embedding(outlier_seed, posting_user, type))
-            # print("Chosen seed for the cluster 1: ", app.config['Indexer_'+type].get_id_from_embedding(cluster_seed1, posting_user, type))
-            # print("Chosen seed for the cluster 2: ", app.config['Indexer_'+type].get_id_from_embedding(cluster_seed2, posting_user, type))
+            print("Chosen seed for the outliers: ", app.config['Indexer_'+str(in_type)].get_id_from_embedding(outlier_seed, posting_user, in_type))
+            print("Chosen seed for the cluster 1: ", app.config['Indexer_'+str(in_type)].get_id_from_embedding(cluster_seed1, posting_user, in_type))
+            print("Chosen seed for the cluster 2: ", app.config['Indexer_'+str(in_type)].get_id_from_embedding(cluster_seed2, posting_user, in_type))
 
             for out_type in output_types:
                 # retrieve content from main cluster seed
