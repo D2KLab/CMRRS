@@ -340,14 +340,12 @@ def retrieve():
 @app.route('/mv_retrieval/v0.1/recommend_contents', methods=['POST'])
 def recommend():
     """
-    Input is a json containing two fields
+    Input is a json containing 
 
-    :content (query)                      : binary text or image
-    :k (number of contents to retrieve)   : int
-    :type (text or image)                 : str
+    :username                : str
 
     :return: return a payload with the fields 'contents' (List[str]) 
-            and 'scores' (List[float])
+            and 'scores' (List[float]) for each retrieval mode
     """
     k                 = int(request.args['k'])
     posting_user      = request.args['user'] 
