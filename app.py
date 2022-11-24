@@ -342,7 +342,8 @@ def recommend():
     """
     Input is a json containing 
 
-    :username                : str
+    :username                          : str
+    :k (number of recommended items)   : int
 
     :return: return a payload with the fields 'contents' (List[str]) 
             and 'scores' (List[float]) for each retrieval mode
